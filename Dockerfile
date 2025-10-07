@@ -30,5 +30,9 @@ RUN useradd --create-home --uid 1000 appuser || true \
 # Switch to non-root user (good practice for production)
 USER appuser
 
-# Default command: run the example agent (uses lazy imports/fallback)
-CMD ["python", "agent.py"]
+# Expose API port
+EXPOSE 8000
+
+# Default command: run the FastAPI app via uvicorn
+# Use --host 0.0.0.0 so the container accepts external connections
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

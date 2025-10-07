@@ -4,3 +4,5 @@ python-dotenv
 slack_bolt 
 langchain-community 
 pytest
+fastapi
+uvicorn[standard]
