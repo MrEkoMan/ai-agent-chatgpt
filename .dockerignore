@@ -1,0 +1,17 @@
+venv
+.venv
+__pycache__
+.pytest_cache
+.git
+.gitignore
+.venv/
+ai-agent/
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+*.egg-info
+env/
+ENV
+.env

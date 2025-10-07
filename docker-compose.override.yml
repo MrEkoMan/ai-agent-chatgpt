@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  ai-agent:
+    # Development override: run as root so mounted volumes are writable on Windows.
+    user: root
+    environment:
+      - DEV_CONTAINER=1

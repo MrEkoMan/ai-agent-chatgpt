@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  ai-agent:
+    build: .
+    image: ai-agent:latest
+    container_name: ai-agent
+    restart: unless-stopped
+    # Use the host .env file if present to pass API keys (optional)
+    env_file:
+      - .env
+    # Mount the project so you can iterate without rebuilding (dev friendly).
+    # Note: mounting can cause permission differences depending on host OS and
+    # the non-root user in the image; remove the volume for a pure build image.
+    volumes:
+      - ./:/app:delegated
+    # Default command runs the example agent; override with `docker compose run` to run tests
+    command: ["python", "agent.py"]
