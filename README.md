@@ -66,6 +66,23 @@ Environment variables
 - Put secrets (like OPENAI_API_KEY) in a `.env` file at the repo root. The compose files and Dockerfile will read `.env` when present.
 - Avoid committing `.env` — consider adding it to `.gitignore`.
 
+Pinned dependencies (optional but recommended)
+
+For reproducible Docker builds and deployments pin your dependencies into `requirements.lock`.
+You can generate it from your development environment:
+
+PowerShell (Windows):
+```powershell
+.\tools\pin_requirements.ps1
+```
+
+POSIX (macOS/Linux):
+```bash
+./tools/pin_requirements.sh
+```
+
+The Dockerfile will prefer `requirements.lock` if present, falling back to `requirements.txt` otherwise.
+
 Permission notes
 
 - By default the image runs as a non-root `appuser`. For development on Windows the override runs as `root` because mounted volumes can otherwise be owned by the host and be unwritable by the container user.
