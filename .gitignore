@@ -1,7 +1,8 @@
 # Created by venv; see https://docs.python.org/3/library/venv.html
 
 # Ignore the virtual environment directory
-ai-agent\
+ai-agent/
+.venv
 
 # Ignore environment variable files
 .env
