@@ -1,5 +1,6 @@
 from typing import Callable, Dict
 
+
 def make_tool(name: str, func: Callable, description: str = "") -> Dict:
     """Return a canonical tool descriptor used by this repo's examples.
 

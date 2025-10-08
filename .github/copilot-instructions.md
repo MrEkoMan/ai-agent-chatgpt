@@ -27,6 +27,16 @@ Concise, actionable notes to get an automated coding assistant productive in thi
 
   - Tests (pytest): tests mock or rely on fallback executor so they run without LangChain.
 
+  - Developer tooling (linting/pre-commit):
+
+    ```powershell
+    # install dev dependencies and enable pre-commit hooks
+    pip install -r requirements-dev.txt
+    pre-commit install
+    # run ruff manually
+    python -m ruff check .
+    ```
+
 - Project-specific conventions and patterns
   - Agent composition pattern: `agent = mapping | prompt | llm | parser` — preserve order when adding or modifying components.
   - Tools: repo uses a small canonical tool shape (dict with keys `name`, `func`, `description`) exported by `tools.make_tool`. Tests call `agent.build_agent()` which by default wires `tools.example_tool`.

@@ -2,12 +2,13 @@ import asyncio
 import json
 import os
 import time
-from typing import Any, Dict, AsyncGenerator, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+# Local imports and app
 from agent import build_agent
 
 app = FastAPI(title="ai-agent API")
@@ -37,6 +38,23 @@ def get_executor():
     return _executor
 
 
+def _build_payload(req: InvokeRequest) -> Dict[str, Any]:
+    return {"input": req.input, "chat_history": req.chat_history or []}
+
+
+def _serialize_tool(t: Any) -> Dict[str, str]:
+    if isinstance(t, dict):
+        return {
+            "name": t.get("name"),
+            "description": t.get("description"),
+        }
+
+    return {
+        "name": getattr(t, "name", str(t)),
+        "description": getattr(t, "description", ""),
+    }
+
+
 def check_auth(authorization: Optional[str]):
     if API_KEY is None:
         return True
@@ -56,55 +74,57 @@ async def _invoke_executor_async(executor, payload: dict) -> dict:
 
 
 @app.post("/v1/invoke")
-async def invoke(req: InvokeRequest, request: Request, authorization: Optional[str] = Header(None)):
+async def invoke(
+    req: InvokeRequest,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
     check_auth(authorization)
     executor = get_executor()
 
-    payload = {"input": req.input, "chat_history": req.chat_history or []}
+    payload = _build_payload(req)
     start = time.time()
     try:
         out = await _invoke_executor_async(executor, payload)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     duration = int((time.time() - start) * 1000)
     return {
-        "output": out.get("output"), 
-        "used_tools": out.get("used_tools", []), 
-        "metadata": {"duration_ms": duration}}
+        "output": out.get("output"),
+        "used_tools": out.get("used_tools", []),
+        "metadata": {"duration_ms": duration},
+    }
 
 
 @app.get("/v1/tools")
 async def list_tools(authorization: Optional[str] = Header(None)):
     check_auth(authorization)
-    # Try to inspect executor.tools if available
     executor = get_executor()
     tools = []
     try:
         for t in getattr(executor, "tools", []):
-            if isinstance(t, dict):
-                tools.append({"name": t.get("name"), "description": t.get("description")})
-            else:
-                tools.append({"name": getattr(t, "name", str(t)), "description": getattr(t, "description", "")})
+            tools.append(_serialize_tool(t))
     except Exception:
         pass
     return {"tools": tools}
 
 
 @app.post("/v1/tools/{name}/run")
-async def run_tool(name: str, body: ToolRunRequest, authorization: Optional[str] = Header(None)):
+async def run_tool(
+    name: str, body: ToolRunRequest, authorization: Optional[str] = Header(None)
+):
     check_auth(authorization)
     executor = get_executor()
-    # Try to find tool by name
     for t in getattr(executor, "tools", []):
         tname = t.get("name") if isinstance(t, dict) else getattr(t, "name", None)
         func = t.get("func") if isinstance(t, dict) else getattr(t, "func", None)
-        if tname == name and callable(func):
-            try:
-                # Run tool in thread if it's blocking
-                result = await asyncio.to_thread(func, body.input)
-                return {"tool_name": name, "result": result}
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
+        if tname != name or not callable(func):
+            continue
+        try:
+            result = await asyncio.to_thread(func, body.input)
+            return {"tool_name": name, "result": result}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e)) from e
     raise HTTPException(status_code=404, detail="Tool not found")
 
 
@@ -121,14 +141,13 @@ async def _chunk_string(s: str, chunk_size: int = 256):
 async def _sse_event_generator(payload: dict) -> AsyncGenerator[str, None]:
     """Return an SSE generator yielding JSON chunks for the payload's output.
 
-    If underlying executor provides a streaming generator (attribute `stream_invoke`), use it.
-    Otherwise fallback to chunking the full output string.
+    If underlying executor provides a streaming generator (attribute
+    `stream_invoke`), use it. Otherwise fallback to chunking the full
+    output string.
     """
     executor = get_executor()
-    # Prefer a streaming interface if available
     stream_fn = getattr(executor, "stream_invoke", None)
     if callable(stream_fn):
-        # If executor provides a generator, iterate it in a thread
         def gen():
             for piece in stream_fn(payload):
                 yield piece
@@ -148,7 +167,9 @@ async def _sse_event_generator(payload: dict) -> AsyncGenerator[str, None]:
 
 
 @app.post("/v1/invoke/stream")
-async def invoke_stream(req: InvokeRequest, authorization: Optional[str] = Header(None)):
+async def invoke_stream(
+    req: InvokeRequest, authorization: Optional[str] = Header(None)
+):
     check_auth(authorization)
     payload = {"input": req.input, "chat_history": req.chat_history or []}
 

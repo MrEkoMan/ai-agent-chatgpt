@@ -1,4 +1,5 @@
 import json
+
 from fastapi.testclient import TestClient
 
 import api
@@ -6,7 +7,13 @@ import api
 
 class DummyExecutor:
     def __init__(self):
-        self.tools = [{"name": "echo", "func": lambda s: f"echo: {s}", "description": "echoes"}]
+        self.tools = [
+            {
+                "name": "echo",
+                "func": lambda s: f"echo: {s}",
+                "description": "echoes",
+            }
+        ]
 
     def invoke(self, payload):
         return {"output": f"processed: {payload.get('input')}", "used_tools": []}
@@ -60,7 +67,12 @@ def test_stream_invoke(monkeypatch):
     monkeypatch.setattr(api, "get_executor", lambda: dummy)
     client = TestClient(api.app)
 
-    with client.stream("POST", "/v1/invoke/stream", data=json.dumps({"input": "hello"}), headers={"Content-Type": "application/json"}) as r:
+    with client.stream(
+        "POST",
+        "/v1/invoke/stream",
+        content=json.dumps({"input": "hello"}),
+        headers={"Content-Type": "application/json"},
+    ) as r:
         assert r.status_code == 200
         chunks = []
         for chunk in r.iter_lines():

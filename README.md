@@ -5,6 +5,7 @@ AI Agent built using ChatGPT and LangChain.
 ## Quick links for contributors
 
 - See `.github/copilot-instructions.md` for concise guidance aimed at automation and AI-based coding assistants. It documents the project entry points (`agent.py`), development workflow, testing hints, and how to add tools.
+  - See `CONTRIBUTING.md` for an expanded developer workflow and contribution guidelines.
 - Key files:
   - `agent.py` — example runner and agent composition
   - `requirements.txt` — Python dependencies
@@ -89,3 +90,25 @@ Permission notes
 - For production builds remove the override and rely on the non-root user in the Dockerfile.
 
 If you need help reproducing a failing `docker run` (exit code 1), paste the container logs (run `docker compose up --build` and share the output) and I will debug it with you.
+
+Developer tooling
+-----------------
+
+We include linting and pre-commit tooling to keep the codebase consistent.
+
+1) Install developer dependencies and enable pre-commit hooks:
+
+```powershell
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+2) Run ruff locally:
+
+```powershell
+python -m ruff check .
+python -m ruff format .
+```
+
+Pre-commit will automatically run configured linters (ruff, black, isort)
+on staged files.

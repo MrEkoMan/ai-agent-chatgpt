@@ -1,0 +1,14 @@
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "Q"]
+ignore = []
+extend-ignore = ["D401"]
+
+[tool.ruff.lint.per-file-ignores]
+# tests often use fixtures and monkeypatch patterns that trigger unused-ignores
+"tests/*" = ["F401"]
+
+

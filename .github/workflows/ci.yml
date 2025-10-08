@@ -7,6 +7,31 @@ on:
     branches: [ main, master ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.13]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install ruff
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff
+
+      - name: Run ruff lint
+        run: |
+          # Check all Python files; fail on any issues
+          python -m ruff check .
+
+
   test:
     runs-on: ubuntu-latest
     strategy:
