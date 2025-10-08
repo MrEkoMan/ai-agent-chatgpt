@@ -4,31 +4,102 @@ import os
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Local imports and app
 from agent import build_agent
 
-app = FastAPI(title="ai-agent API")
+# OpenAPI tags
+TAGS = [
+    {"name": "agent", "description": "Agent invocation and streaming endpoints."},
+    {"name": "tools", "description": "Tool discovery and execution endpoints."},
+]
+
+
+app = FastAPI(
+    title="ai-agent API",
+    version="0.1.0",
+    description=(
+        "Lightweight AI agent example. Use `/v1/invoke` to run the agent, "
+        "`/v1/invoke/stream` for streaming responses, and `/v1/tools` to "
+        "inspect available tools."
+    ),
+    openapi_tags=TAGS,
+)
 
 # API auth token (runtime). For development put it in .env or docker-compose env_file.
 API_KEY = os.environ.get("AGENT_API_KEY")
 
 
 class InvokeRequest(BaseModel):
-    input: str
-    chat_history: Optional[List[Dict[str, Any]]] = None
-    tools: Optional[List[str]] = None
+    input: str = Field(
+        ..., json_schema_extra={"example": "Summarize the following text: ..."}
+    )
+    chat_history: Optional[List[Dict[str, Any]]] = Field(
+        None, description="Conversation history"
+    )
+    tools: Optional[List[str]] = Field(
+        None, description="Optional list of tool names to allow"
+    )
 
 
 class ToolRunRequest(BaseModel):
-    input: Any
+    input: Any = Field(..., json_schema_extra={"example": "some input for the tool"})
+
+
+class InvokeResponse(BaseModel):
+    output: Optional[str] = Field(None, description="Primary assistant output")
+    used_tools: List[str] = Field(
+        default_factory=list, description="List of tools used"
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Runtime metadata"
+    )
+
+
+class ToolsResponse(BaseModel):
+    tools: List[Dict[str, str]] = Field(..., description="Available tools")
+
+
+class ToolRunResponse(BaseModel):
+    tool_name: str = Field(..., description="Name of the tool invoked")
+    result: Any = Field(..., description="Tool execution result")
+
+
+class HealthResponse(BaseModel):
+    status: str = Field(..., json_schema_extra={"example": "ok"})
 
 
 # Build a shared executor on first request. Uses lazy imports in agent.build_agent().
 _executor = None
+
+# Module-level Body examples to avoid function-call defaults warnings (B008)
+INVOKE_BODY = Body(
+    ...,
+    examples={
+        "default": {
+            "summary": "Example invoke",
+            "value": {"input": "Summarize the following text: ..."},
+        }
+    },
+)
+
+RUN_TOOL_BODY = Body(
+    ...,
+    examples={"default": {"summary": "Example tool run", "value": {"input": "abc"}}},
+)
+
+INVOKE_STREAM_BODY = Body(
+    ...,
+    examples={
+        "default": {
+            "summary": "Example invoke stream",
+            "value": {"input": "Summarize the following text: ..."},
+        }
+    },
+)
 
 
 def get_executor():
@@ -73,11 +144,16 @@ async def _invoke_executor_async(executor, payload: dict) -> dict:
     return await asyncio.to_thread(executor.invoke, payload)
 
 
-@app.post("/v1/invoke")
+@app.post(
+    "/v1/invoke",
+    response_model=InvokeResponse,
+    tags=["agent"],
+    summary="Invoke the agent synchronously",
+)
 async def invoke(
-    req: InvokeRequest,
-    request: Request,
+    req: InvokeRequest = INVOKE_BODY,
     authorization: Optional[str] = Header(None),
+    request: Request = None,
 ):
     check_auth(authorization)
     executor = get_executor()
@@ -96,7 +172,12 @@ async def invoke(
     }
 
 
-@app.get("/v1/tools")
+@app.get(
+    "/v1/tools",
+    response_model=ToolsResponse,
+    tags=["tools"],
+    summary="List available tools",
+)
 async def list_tools(authorization: Optional[str] = Header(None)):
     check_auth(authorization)
     executor = get_executor()
@@ -109,9 +190,16 @@ async def list_tools(authorization: Optional[str] = Header(None)):
     return {"tools": tools}
 
 
-@app.post("/v1/tools/{name}/run")
+@app.post(
+    "/v1/tools/{name}/run",
+    response_model=ToolRunResponse,
+    tags=["tools"],
+    summary="Execute a named tool",
+)
 async def run_tool(
-    name: str, body: ToolRunRequest, authorization: Optional[str] = Header(None)
+    name: str,
+    body: ToolRunRequest = RUN_TOOL_BODY,
+    authorization: Optional[str] = Header(None),
 ):
     check_auth(authorization)
     executor = get_executor()
@@ -128,7 +216,12 @@ async def run_tool(
     raise HTTPException(status_code=404, detail="Tool not found")
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    tags=["agent"],
+    summary="Service health check",
+)
 async def health():
     return {"status": "ok"}
 
@@ -166,9 +259,20 @@ async def _sse_event_generator(payload: dict) -> AsyncGenerator[str, None]:
         yield f"data: {data}\n\n"
 
 
-@app.post("/v1/invoke/stream")
+@app.post(
+    "/v1/invoke/stream",
+    tags=["agent"],
+    summary="Invoke the agent with streaming (SSE)",
+    responses={
+        200: {
+            "description": "Server-Sent Events streaming response with JSON payloads.",
+            "content": {"text/event-stream": {"schema": {"type": "string"}}},
+        }
+    },
+)
 async def invoke_stream(
-    req: InvokeRequest, authorization: Optional[str] = Header(None)
+    req: InvokeRequest = INVOKE_STREAM_BODY,
+    authorization: Optional[str] = Header(None),
 ):
     check_auth(authorization)
     payload = {"input": req.input, "chat_history": req.chat_history or []}

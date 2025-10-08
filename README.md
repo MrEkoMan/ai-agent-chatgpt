@@ -112,3 +112,28 @@ python -m ruff format .
 
 Pre-commit will automatically run configured linters (ruff, black, isort)
 on staged files.
+
+OpenAPI generation
+------------------
+
+This repository can generate an OpenAPI JSON document for the FastAPI app.
+
+Locally (PowerShell):
+
+```powershell
+# activate your venv first (see Running locally above)
+python tools/generate_openapi.py
+# the file will be written to openapi.json in the repo root
+```
+
+CI workflow
+----------
+
+A GitHub Actions workflow is included at `.github/workflows/generate-openapi.yml`.
+It runs on pushes to `main`, PRs against `main`, and manually via `workflow_dispatch`.
+
+- The workflow installs Python, runs `tools/generate_openapi.py`, and uploads the
+  generated `openapi.json` as an artifact named `openapi-json`.
+- Optionally the workflow attempts to commit `openapi.json` back to `main` when changed; if you prefer a PR-based flow I can update the workflow to open a pull request instead of pushing directly.
+
+Fetch the artifact from the workflow run UI (Actions → Choose run → Artifacts → openapi-json).
