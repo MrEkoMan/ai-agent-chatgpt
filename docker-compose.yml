@@ -14,5 +14,6 @@ services:
     # the non-root user in the image; remove the volume for a pure build image.
     volumes:
       - ./:/app:delegated
-    # Default command runs the example agent; override with `docker compose run` to run tests
-    command: ["python", "agent.py"]
+  # In production the container will run the image CMD (uvicorn). For development you
+  # can override the command to run the example agent or tests, e.g.:
+  # docker compose run --rm ai-agent python agent.py

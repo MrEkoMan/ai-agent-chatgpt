@@ -18,7 +18,9 @@ COPY requirements.txt ./
 COPY requirements.lock ./
 RUN pip install --upgrade pip setuptools wheel \
     && if [ -s requirements.lock ]; then pip install --no-cache-dir -r requirements.lock; \
-       elif [ -s requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+       elif [ -s requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi \
+    # Ensure uvicorn is available even if not pinned in requirements (safe fallback)
+    && pip install --no-cache-dir "uvicorn[standard]" || true
 
 # Copy application code
 COPY . /app
@@ -33,6 +35,6 @@ USER appuser
 # Expose API port
 EXPOSE 8000
 
-# Default command: run the FastAPI app via uvicorn
+# Default command: run the FastAPI app via the venv python -m uvicorn
 # Use --host 0.0.0.0 so the container accepts external connections
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["/opt/venv/bin/python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
