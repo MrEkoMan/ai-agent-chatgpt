@@ -5,4 +5,4 @@ slack_bolt
 langchain-community 
 pytest
 fastapi
-uvicorn[standard]
+uvicorn[standard]==0.37.0
