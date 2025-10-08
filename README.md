@@ -137,3 +137,5 @@ It runs on pushes to `main`, PRs against `main`, and manually via `workflow_disp
 - Optionally the workflow attempts to commit `openapi.json` back to `main` when changed; if you prefer a PR-based flow I can update the workflow to open a pull request instead of pushing directly.
 
 Fetch the artifact from the workflow run UI (Actions → Choose run → Artifacts → openapi-json).
+
+Note: `docker compose up` will start the built image which runs `uvicorn` by default (the compose service no longer overrides the image CMD). Use `docker compose run --rm ai-agent ...` to override the command for development.
