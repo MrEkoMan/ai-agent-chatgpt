@@ -125,6 +125,11 @@ INVOKE_STREAM_BODY = Body(
 
 
 def get_executor():
+    """Return a shared executor instance, building it lazily on first use.
+
+    Uses the module-level `_executor` to cache the created agent so repeated
+    calls reuse the same instance.
+    """
     global _executor
     if _executor is None:
         _executor = build_agent()
@@ -132,23 +137,34 @@ def get_executor():
 
 
 def _build_payload(req: InvokeRequest) -> Dict[str, Any]:
+    """Convert an InvokeRequest into the internal executor payload shape.
+
+    Ensures chat_history is a list (empty if not provided).
+    """
     return {"input": req.input, "chat_history": req.chat_history or []}
 
 
 def _serialize_tool(t: Any) -> Dict[str, str]:
-    if isinstance(t, dict):
-        return {
-            "name": t.get("name"),
-            "description": t.get("description"),
-        }
+    """Normalize a tool object into a simple dict with `name` and `description`.
 
-    return {
-        "name": getattr(t, "name", str(t)),
-        "description": getattr(t, "description", ""),
-    }
+    Accepts either dict-shaped tools or objects exposing `.name` and `.description`.
+    """
+    if isinstance(t, dict):
+        return {"name": t.get("name"), "description": t.get("description")}
+
+    return {"name": getattr(t, "name", str(t)), "description": getattr(t, "description", "")}
 
 
 def check_auth(authorization: Optional[str]):
+    """Confirm the incoming Authorization header is valid.
+
+    Behavior:
+    - If no `AGENT_API_KEY` is configured, authentication is disabled.
+    - Otherwise, accepts either the static `AGENT_API_KEY` or a previously
+      issued session token (from `/login`). Expired tokens are pruned.
+
+    Raises HTTPException(401) when the header is missing or invalid.
+    """
     if API_KEY is None:
         return True
     if not authorization:
@@ -173,7 +189,7 @@ def check_auth(authorization: Optional[str]):
 
 def _issue_token() -> LoginResponse:
     import uuid
-
+    """Create a new session token, store it with an expiry, and return it."""
     token = uuid.uuid4().hex
     exp = int(time.time()) + TOKEN_LIFETIME
     _TOKENS[token] = exp
@@ -181,7 +197,11 @@ def _issue_token() -> LoginResponse:
 
 
 async def _invoke_executor_async(executor, payload: dict) -> dict:
-    # Run blocking executor.invoke in a thread to avoid blocking the event loop
+    """Run the executor.invoke in a thread and return the result.
+
+    Executors are potentially blocking (heavy LLM calls), so this helper
+    delegates to a thread pool to keep the FastAPI event loop responsive.
+    """
     return await asyncio.to_thread(executor.invoke, payload)
 
 
@@ -196,6 +216,11 @@ async def invoke(
     authorization: Optional[str] = Header(None),
     request: Request = None,
 ):
+    """Invoke the agent synchronously and return structured response.
+
+    The endpoint accepts an `InvokeRequest` and returns an `InvokeResponse`.
+    Authentication is enforced via the `Authorization` header when configured.
+    """
     check_auth(authorization)
     executor = get_executor()
 
@@ -220,6 +245,10 @@ async def invoke(
     summary="List available tools",
 )
 async def list_tools(authorization: Optional[str] = Header(None)):
+    """Return a list of available tools exposed by the executor.
+
+    Authentication is enforced when configured.
+    """
     check_auth(authorization)
     executor = get_executor()
     tools = []
@@ -233,6 +262,11 @@ async def list_tools(authorization: Optional[str] = Header(None)):
 
 @app.post("/login", response_model=LoginResponse, tags=["agent"], summary="Login and get a session token")
 async def login(req: LoginRequest = Body(...)):
+    """Authenticate using username/password and return a temporary token.
+
+    This simple endpoint is intended for development. In production, use an
+    external identity provider or a hardened authentication flow.
+    """
     # Simple username/password auth for issuing temporary tokens (dev only)
     if req.username != ADMIN_USER or req.password != ADMIN_PASS:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -241,6 +275,11 @@ async def login(req: LoginRequest = Body(...)):
 
 @app.post("/logout", response_model=LogoutResponse, tags=["agent"], summary="Logout and revoke session token")
 async def logout(authorization: Optional[str] = Header(None)):
+    """Revoke a previously issued session token.
+
+    The endpoint looks for a Bearer token in the Authorization header and
+    removes it from the in-memory store if present.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
     token = authorization.split(" ", 1)[1]
@@ -264,6 +303,11 @@ async def run_tool(
     body: ToolRunRequest = RUN_TOOL_BODY,
     authorization: Optional[str] = Header(None),
 ):
+    """Execute the named tool with the provided input and return its result.
+
+    Enforces authentication when configured. Tools are looked up from the
+    executor's `tools` attribute and must expose a callable `func`.
+    """
     check_auth(authorization)
     executor = get_executor()
     for t in getattr(executor, "tools", []):
@@ -286,10 +330,12 @@ async def run_tool(
     summary="Service health check",
 )
 async def health():
+    """Return a simple health status for service checks."""
     return {"status": "ok"}
 
 
 async def _chunk_string(s: str, chunk_size: int = 256):
+    """Yield successive chunks from a string for streaming fallback."""
     for i in range(0, len(s), chunk_size):
         yield s[i : i + chunk_size]
 
@@ -337,6 +383,12 @@ async def invoke_stream(
     req: InvokeRequest = INVOKE_STREAM_BODY,
     authorization: Optional[str] = Header(None),
 ):
+    """Invoke the agent and return Server-Sent Events (SSE) streaming output.
+
+    The endpoint yields JSON payloads as SSE `data:` events. When a
+    stream-capable executor is present it will be used; otherwise the
+    full output is chunked and sent.
+    """
     check_auth(authorization)
     payload = {"input": req.input, "chat_history": req.chat_history or []}
 
