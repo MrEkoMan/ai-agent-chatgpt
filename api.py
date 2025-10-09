@@ -31,6 +31,28 @@ app = FastAPI(
 
 # API auth token (runtime). For development put it in .env or docker-compose env_file.
 API_KEY = os.environ.get("AGENT_API_KEY")
+# Admin credentials for login (development). Set these in the environment in production.
+ADMIN_USER = os.environ.get("AGENT_ADMIN_USER", "admin")
+ADMIN_PASS = os.environ.get("AGENT_ADMIN_PASS", "password")
+
+# Token storage: token -> expiry timestamp (unix seconds)
+_TOKENS: Dict[str, int] = {}
+# Token lifetime in seconds (default 24 hours)
+TOKEN_LIFETIME = int(os.environ.get("AGENT_TOKEN_LIFETIME", 60 * 60 * 24))
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    expires_at: int
+
+
+class LogoutResponse(BaseModel):
+    detail: str
 
 
 class InvokeRequest(BaseModel):
@@ -134,9 +156,28 @@ def check_auth(authorization: Optional[str]):
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid Authorization header")
     token = authorization.split(" ", 1)[1]
-    if token != API_KEY:
+    # Accept either the single shared API_KEY or an issued session token
+    if token == API_KEY:
+        return True
+    # prune expired tokens
+    now = int(time.time())
+    expired = [t for t, exp in _TOKENS.items() if exp <= now]
+    for t in expired:
+        _TOKENS.pop(t, None)
+
+    exp = _TOKENS.get(token)
+    if not exp or exp <= now:
         raise HTTPException(status_code=401, detail="Invalid API token")
     return True
+
+
+def _issue_token() -> LoginResponse:
+    import uuid
+
+    token = uuid.uuid4().hex
+    exp = int(time.time()) + TOKEN_LIFETIME
+    _TOKENS[token] = exp
+    return LoginResponse(token=token, expires_at=exp)
 
 
 async def _invoke_executor_async(executor, payload: dict) -> dict:
@@ -188,6 +229,28 @@ async def list_tools(authorization: Optional[str] = Header(None)):
     except Exception:
         pass
     return {"tools": tools}
+
+
+@app.post("/login", response_model=LoginResponse, tags=["agent"], summary="Login and get a session token")
+async def login(req: LoginRequest = Body(...)):
+    # Simple username/password auth for issuing temporary tokens (dev only)
+    if req.username != ADMIN_USER or req.password != ADMIN_PASS:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return _issue_token()
+
+
+@app.post("/logout", response_model=LogoutResponse, tags=["agent"], summary="Logout and revoke session token")
+async def logout(authorization: Optional[str] = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    token = authorization.split(" ", 1)[1]
+    if token in _TOKENS:
+        _TOKENS.pop(token, None)
+        return {"detail": "Logged out"}
+    # If token is the static API_KEY, we don't revoke it
+    if token == API_KEY:
+        return {"detail": "Static API key cannot be revoked via logout"}
+    raise HTTPException(status_code=401, detail="Invalid token")
 
 
 @app.post(
