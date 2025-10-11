@@ -10,3 +10,5 @@ ai-agent/
 # Ignore Python cache files
 __pycache__/
 *.pyc
+webui/dist
+webui/node_modules
