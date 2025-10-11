@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { Button, Input, Box, Stack } from '../ui'
 
 export default function InvokeForm() {
   const { token, login } = useAuth()
@@ -23,19 +24,22 @@ export default function InvokeForm() {
   }
 
   return (
-    <form onSubmit={handleInvoke} style={{ marginBottom: 12 }}>
-      <label>
-        Prompt
-        <input
-          value={input}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-        />
-      </label>
-      <button type="submit">Invoke</button>
-      <div>
+    <form onSubmit={handleInvoke}>
+      <Box mb={4}>
+        <label>
+          Prompt
+          <Input value={input} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)} />
+        </label>
+      </Box>
+      <Box mb={4}>
+        <Button type="submit" colorScheme="blue">
+          Invoke
+        </Button>
+      </Box>
+      <Box>
         <strong>Output</strong>
         <pre>{output}</pre>
-      </div>
+      </Box>
     </form>
   )
 }

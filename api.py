@@ -6,6 +6,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # Local imports and app
@@ -28,6 +29,10 @@ app = FastAPI(
     ),
     openapi_tags=TAGS,
 )
+
+# Serve static web UI when available (built via Docker multi-stage)
+if os.path.isdir('webui_dist'):
+    app.mount('/', StaticFiles(directory='webui_dist', html=True), name='webui')
 
 # API auth token (runtime). For development put it in .env or docker-compose env_file.
 API_KEY = os.environ.get("AGENT_API_KEY")

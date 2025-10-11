@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Button, Input, Box } from '../ui'
 import { useAuth } from './AuthProvider'
 
 export default function LoginForm() {
@@ -15,14 +16,14 @@ export default function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <label style={{ display: 'flex', flexDirection: 'column' }}>
-        API Key
-        <input value={apiKey} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)} />
-      </label>
-      <button type="submit" disabled={loading}>
-        {loading ? 'Logging in...' : 'Login'}
-      </button>
+    <form onSubmit={handleSubmit}>
+      <Box display="flex" gap={4} alignItems="center">
+  <label htmlFor="apiKey">API Key</label>
+  <Input id="apiKey" value={apiKey} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)} />
+        <Button type="submit" loading={loading} colorScheme="teal">
+          {loading ? 'Logging...' : 'Login'}
+        </Button>
+      </Box>
     </form>
   )
 }

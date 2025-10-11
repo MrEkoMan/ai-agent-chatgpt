@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthProvider'
+import { Box, Heading } from '../ui'
 
 export default function StreamViewer() {
   const { token } = useAuth()
@@ -8,7 +9,8 @@ export default function StreamViewer() {
   useEffect(() => {
     if (!token) return
 
-    const evtSource = new EventSource('/v1/invoke/stream', { withCredentials: false } as any)
+    const url = '/v1/invoke/stream' + (token ? `?token=${encodeURIComponent(token)}` : '')
+    const evtSource = new EventSource(url, { withCredentials: false } as any)
     evtSource.onmessage = (e: MessageEvent) => {
       try {
         const payload = JSON.parse(e.data)
@@ -26,15 +28,15 @@ export default function StreamViewer() {
   }, [token])
 
   return (
-    <div>
-      <h2>Stream</h2>
-      <div style={{ background: '#111', color: '#eee', padding: 12, minHeight: 120 }}>
+    <Box>
+      <Heading size="md">Stream</Heading>
+      <Box bg="#111" color="#eee" p={3} minH="120px">
         {lines.map((l: string, i: number) => (
-          <div key={i}>
+          <Box key={i} mb={2}>
             <pre>{l}</pre>
-          </div>
+          </Box>
         ))}
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }
