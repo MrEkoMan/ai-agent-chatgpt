@@ -1,3 +1,13 @@
+FROM node:18-alpine AS ui-build
+
+# Install deps and build the web UI (Vite)
+WORKDIR /app/webui
+COPY webui/package.json webui/package-lock.json* ./
+RUN npm install --legacy-peer-deps || true
+COPY webui/ .
+RUN npm run build || true
+RUN if [ -d dist ]; then mv dist /dist || true; fi
+
 FROM python:3.13-slim AS base
 
 # Do not write pyc files and make output unbuffered
@@ -24,6 +34,9 @@ RUN pip install --upgrade pip setuptools wheel \
 
 # Copy application code
 COPY . /app
+
+# Copy compiled web UI from the builder stage (if produced)
+COPY --from=ui-build /dist /app/webui_dist
 
 # Create a non-root user and fix permissions for the venv and app folder
 RUN useradd --create-home --uid 1000 appuser || true \

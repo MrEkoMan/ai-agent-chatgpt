@@ -139,3 +139,8 @@ It runs on pushes to `main`, PRs against `main`, and manually via `workflow_disp
 Fetch the artifact from the workflow run UI (Actions → Choose run → Artifacts → openapi-json).
 
 Note: `docker compose up` will start the built image which runs `uvicorn` by default (the compose service no longer overrides the image CMD). Use `docker compose run --rm ai-agent ...` to override the command for development.
+
+API examples
+------------
+
+See `docs/api_examples.md` for curl and Python snippets showing how to call each endpoint.
