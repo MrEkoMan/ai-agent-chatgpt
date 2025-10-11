@@ -12,6 +12,7 @@
           "agent"
         ],
         "summary": "Invoke the agent synchronously",
+        "description": "Invoke the agent synchronously and return structured response.\n\nThe endpoint accepts an `InvokeRequest` and returns an `InvokeResponse`.\nAuthentication is enforced via the `Authorization` header when configured.",
         "operationId": "invoke_v1_invoke_post",
         "parameters": [
           {
@@ -79,6 +80,7 @@
           "tools"
         ],
         "summary": "List available tools",
+        "description": "Return a list of available tools exposed by the executor.\n\nAuthentication is enforced when configured.",
         "operationId": "list_tools_v1_tools_get",
         "parameters": [
           {
@@ -122,12 +124,105 @@
         }
       }
     },
+    "/login": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Login and get a session token",
+        "description": "Authenticate using username/password and return a temporary token.\n\nThis simple endpoint is intended for development. In production, use an\nexternal identity provider or a hardened authentication flow.",
+        "operationId": "login_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logout": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Logout and revoke session token",
+        "description": "Revoke a previously issued session token.\n\nThe endpoint looks for a Bearer token in the Authorization header and\nremoves it from the in-memory store if present.",
+        "operationId": "logout_logout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tools/{name}/run": {
       "post": {
         "tags": [
           "tools"
         ],
         "summary": "Execute a named tool",
+        "description": "Execute the named tool with the provided input and return its result.\n\nEnforces authentication when configured. Tools are looked up from the\nexecutor's `tools` attribute and must expose a callable `func`.",
         "operationId": "run_tool_v1_tools__name__run_post",
         "parameters": [
           {
@@ -204,6 +299,7 @@
           "agent"
         ],
         "summary": "Service health check",
+        "description": "Return a simple health status for service checks.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -225,6 +321,7 @@
           "agent"
         ],
         "summary": "Invoke the agent with streaming (SSE)",
+        "description": "Invoke the agent and return Server-Sent Events (SSE) streaming output.\n\nThe endpoint yields JSON payloads as SSE `data:` events. When a\nstream-capable executor is present it will be used; otherwise the\nfull output is chunked and sent.",
         "operationId": "invoke_stream_v1_invoke_stream_post",
         "parameters": [
           {
@@ -395,6 +492,55 @@
         },
         "type": "object",
         "title": "InvokeResponse"
+      },
+      "LoginRequest": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "LoginResponse": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "expires_at": {
+            "type": "integer",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "expires_at"
+        ],
+        "title": "LoginResponse"
+      },
+      "LogoutResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "LogoutResponse"
       },
       "ToolRunRequest": {
         "properties": {
