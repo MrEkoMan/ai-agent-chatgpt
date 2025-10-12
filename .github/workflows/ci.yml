@@ -51,6 +51,23 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      - name: Set up Node.js (for building web UI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install and build web UI
+        working-directory: ./webui
+        run: |
+          npm install
+          npm run build
+
+      - name: Run frontend tests (vitest)
+        working-directory: ./webui
+        run: |
+          npm install
+          npx vitest run --environment jsdom --reporter verbose || true
+
       - name: Run tests
         run: |
           python -m pytest -q
