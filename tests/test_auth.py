@@ -1,11 +1,11 @@
 
 import time
 
-from fastapi.testclient import TestClient
 import pytest
+from fastapi.testclient import TestClient
 
 import api
-from api import ADMIN_PASS, ADMIN_USER, TOKEN_LIFETIME, _TOKENS, app
+from api import _TOKENS, ADMIN_PASS, ADMIN_USER, TOKEN_LIFETIME, app
 
 
 @pytest.fixture(autouse=True)
