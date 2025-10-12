@@ -31,8 +31,12 @@ app = FastAPI(
 )
 
 # Serve static web UI when available (built via Docker multi-stage)
-if os.path.isdir('webui_dist'):
-    app.mount('/', StaticFiles(directory='webui_dist', html=True), name='webui')
+if os.path.isdir("webui_dist"):
+    app.mount(
+        "/",
+        StaticFiles(directory="webui_dist", html=True),
+        name="webui",
+    )
 
 # API auth token (runtime). For development put it in .env or docker-compose env_file.
 API_KEY = os.environ.get("AGENT_API_KEY")
@@ -129,6 +133,12 @@ INVOKE_STREAM_BODY = Body(
 )
 
 
+# Module-level Body/header constants for endpoints that otherwise would use
+# a function-call default (B008 lint).
+LOGIN_BODY = Body(...)
+LOGOUT_HEADER = Header(None)
+
+
 def get_executor():
     """Return a shared executor instance, building it lazily on first use.
 
@@ -157,7 +167,10 @@ def _serialize_tool(t: Any) -> Dict[str, str]:
     if isinstance(t, dict):
         return {"name": t.get("name"), "description": t.get("description")}
 
-    return {"name": getattr(t, "name", str(t)), "description": getattr(t, "description", "")}
+    return {
+        "name": getattr(t, "name", str(t)),
+        "description": getattr(t, "description", ""),
+    }
 
 
 def check_auth(authorization: Optional[str]):
@@ -265,8 +278,13 @@ async def list_tools(authorization: Optional[str] = Header(None)):
     return {"tools": tools}
 
 
-@app.post("/login", response_model=LoginResponse, tags=["agent"], summary="Login and get a session token")
-async def login(req: LoginRequest = Body(...)):
+@app.post(
+    "/login",
+    response_model=LoginResponse,
+    tags=["agent"],
+    summary="Login and get a session token",
+)
+async def login(req: LoginRequest = LOGIN_BODY):
     """Authenticate using username/password and return a temporary token.
 
     This simple endpoint is intended for development. In production, use an
@@ -278,15 +296,22 @@ async def login(req: LoginRequest = Body(...)):
     return _issue_token()
 
 
-@app.post("/logout", response_model=LogoutResponse, tags=["agent"], summary="Logout and revoke session token")
-async def logout(authorization: Optional[str] = Header(None)):
+@app.post(
+    "/logout",
+    response_model=LogoutResponse,
+    tags=["agent"],
+    summary="Logout and revoke session token",
+)
+async def logout(authorization: Optional[str] = LOGOUT_HEADER):
     """Revoke a previously issued session token.
 
     The endpoint looks for a Bearer token in the Authorization header and
     removes it from the in-memory store if present.
     """
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=401, detail="Missing or invalid Authorization header"
+        )
     token = authorization.split(" ", 1)[1]
     if token in _TOKENS:
         _TOKENS.pop(token, None)
