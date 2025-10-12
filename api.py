@@ -309,7 +309,9 @@ async def logout(authorization: Optional[str] = LOGOUT_HEADER):
     removes it from the in-memory store if present.
     """
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=401, detail="Missing or invalid Authorization header"
+        )
     token = authorization.split(" ", 1)[1]
     if token in _TOKENS:
         _TOKENS.pop(token, None)
