@@ -1,8 +1,8 @@
 
 import time
 
-import pytest
 from fastapi.testclient import TestClient
+import pytest
 
 import api
 from api import ADMIN_PASS, ADMIN_USER, TOKEN_LIFETIME, _TOKENS, app
